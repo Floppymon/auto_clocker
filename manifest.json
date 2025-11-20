@@ -24,7 +24,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["file://*/*"],
+      "matches": [
+        "https://desk-booking-system.bettercollective.rocks/*",
+        "file://*/*"
+      ],
       "js": ["content.js"]
     }
   ]
