@@ -1,0 +1,299 @@
+/* --- RESET & BASE STYLES --- */
+* { box-sizing: border-box; }
+
+body { 
+width: 260px; 
+padding: 20px; 
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+background-color: #f8f9fa; 
+color: #333;
+margin: 0;
+}
+
+/* --- HEADER SECTION --- */
+.header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 20px;
+}
+
+h3 { 
+margin: 0; 
+font-size: 16px; 
+font-weight: 700;
+color: #2d3436;
+}
+
+.header-right {
+display: flex;
+align-items: center;
+gap: 10px;
+}
+
+/* SVG Cog Icon */
+.settings-icon, .back-icon {
+cursor: pointer;
+padding: 2px;
+transition: transform 0.2s ease;
+}
+.settings-icon:hover {
+transform: rotate(30deg);
+}
+.back-icon:hover {
+transform: translateX(-2px);
+}
+
+/* --- STATUS BADGE --- */
+#status-badge {
+font-size: 11px;
+font-weight: 700; 
+padding: 5px 12px; 
+border-radius: 12px; 
+text-transform: uppercase;
+letter-spacing: 0.5px;
+transition: all 0.3s ease;
+}
+
+.inactive-badge { 
+background-color: #ff4757; 
+color: white;
+box-shadow: 0 2px 5px rgba(255, 71, 87, 0.3);
+}
+
+.active-badge { 
+background-color: #2ed573; 
+color: white;
+box-shadow: 0 2px 5px rgba(46, 213, 115, 0.3);
+}
+
+/* --- INPUT STYLES (TIME & TEXT) --- */
+.input-group {
+margin-bottom: 20px;
+text-align: center;
+display: flex;
+justify-content: center;
+flex-direction: column;
+width: 100%;
+}
+
+input[type="time"], input[type="text"] { 
+width: 100%; 
+padding: 12px; 
+font-size: 18px; 
+font-weight: 500;
+font-family: inherit;
+text-align: center;
+border: 2px solid #dfe6e9;
+border-radius: 12px;
+background-color: #fff;
+outline: none;
+color: #2d3436;
+transition: border-color 0.2s;
+cursor: pointer;
+margin-top: 5px;
+}
+
+input[type="time"] {
+font-size: 24px;
+}
+
+input[type="time"]::-webkit-datetime-edit { 
+text-align: center; 
+}
+input[type="time"]::-webkit-datetime-edit-fields-wrapper { 
+display: flex; 
+justify-content: center; 
+}
+
+input[type="time"]:focus, input[type="text"]:focus {
+border-color: #2ed573;
+}
+
+/* --- BUTTON STYLES --- */
+button { 
+width: 100%; 
+padding: 14px; 
+border: none; 
+cursor: pointer; 
+font-size: 14px; 
+font-weight: 600;
+border-radius: 12px; 
+transition: all 0.2s ease;
+box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Activate (Green) */
+button { 
+background-color: #2ed573; 
+color: white; 
+}
+button:hover { 
+background-color: #26af61; 
+transform: translateY(-1px); 
+box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+}
+button:active {
+transform: translateY(0);
+box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Deactivate (Red) */
+.deactivate-btn { 
+background-color: #ff4757 !important; 
+box-shadow: 0 4px 6px rgba(255, 71, 87, 0.25) !important;
+}
+.deactivate-btn:hover { 
+background-color: #e04050 !important; 
+}
+
+/* --- STATUS MESSAGE AREA --- */
+#status { 
+margin-top: 0; 
+font-size: 13px; 
+line-height: 1.5; 
+text-align: center; 
+border-radius: 10px; 
+transition: all 0.3s ease;
+opacity: 0;
+transform: translateY(10px); 
+padding: 0;
+}
+
+#status.show {
+opacity: 1;
+transform: translateY(0);
+margin-top: 20px;
+padding: 12px;
+}
+
+.status-success {
+background-color: #e8f5e9;
+color: #2e7d32;
+border: 1px solid #c8e6c9;
+}
+
+.status-error {
+background-color: #ffebee;
+color: #c62828;
+border: 1px solid #ffcdd2;
+font-weight: 600;
+}
+
+/* --- VIEW SWITCHING --- */
+.view {
+transition: opacity 0.3s ease;
+}
+
+.hidden {
+display: none;
+}
+
+.settings-title {
+font-size: 14px;
+font-weight: 600;
+margin-top: 15px;
+margin-bottom: 5px;
+color: #636e72;
+text-align: left;
+}
+
+.settings-footer {
+margin-top: 20px;
+}
+
+.settings-note {
+font-size: 11px;
+color: #a0a0a0;
+margin-top: 10px;
+text-align: center;
+}
+
+/* --- Text Input Styling (Ntfy Topic) --- */
+
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+/* --- Button Styles --- */
+
+button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.activate-btn {
+    background-color: #2ed573; /* Success Green */
+    color: white;
+}
+
+.activate-btn:hover {
+    background-color: #27ae60;
+}
+
+/* Note: Deactivate button styles were not included in the "Remaining" file but are needed for the button */
+.deactivate-btn {
+    background-color: #ff6b81; /* Cancellation Red */
+    color: white;
+}
+
+.deactivate-btn:hover {
+    background-color: #eb4d4b;
+}
+
+/* --- Tooltip Styles (Settings Info Icon) --- */
+
+.tooltip-container {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    color: #999; /* Grey color for info icon */
+    margin-left: 6px;
+}
+
+.tooltip-text {
+    visibility: hidden;
+    width: 200px; /* Fixed width */
+    background-color: #333;
+    color: white;
+    text-align: left; /* Left aligned text */
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    
+    /* Position the tooltip */
+    position: absolute;
+    width:250px;
+    z-index: 10;
+    left: 50%;
+    margin-left: -100px; /* Center the tooltip horizontally */
+    
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: normal; /* Allow text wrapping */
+}
+
+/* Show the tooltip text when hovering over the container */
+.tooltip-container:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
