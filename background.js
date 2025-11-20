@@ -125,19 +125,19 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
      });
   }
   
-  // If Active Status changes (Handles Icon Switching)
+  // *** ICON FIX: This block handles setting the icon when isActive changes ***
   if (changes.isActive) {
     const newValue = changes.isActive.newValue;
     if (newValue === true) {
         chrome.storage.sync.get(['targetTime'], (res) => {
             if (res.targetTime) createAlarm(res.targetTime);
         });
-        // Set icon to active using the map
+        // Set icon to active 
         chrome.action.setIcon({ path: ACTIVE_ICON_PATH });
     } else {
         chrome.alarms.clear("bookingAlarm");
         console.log("Background: Timer cancelled by user.");
-        // Set icon to inactive using the map
+        // Set icon to inactive
         chrome.action.setIcon({ path: INACTIVE_ICON_PATH });
     }
   }
