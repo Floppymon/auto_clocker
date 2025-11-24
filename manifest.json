@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Auto Clocker",
-  "version": "2.0",
-  "description": "Waits for a specific time and date, clicks, and sends a phone notification.",
+  "version": "1.3",
+  "description": "Waits for a specific time, clicks, and sends a phone notification.",
   "permissions": [
     "storage",
     "alarms",
@@ -25,6 +25,7 @@
   "content_scripts": [
     {
       "matches": [
+        "https://desk-booking-system.bettercollective.rocks/*",
         "file://*/*"
       ],
       "js": ["content.js"]

@@ -1,20 +1,46 @@
 //
 
-// 1. SETUP ALARM FOR POLLING (Every 1 minute)
+// 1. ALARMS: Poll (1 min) & Broadcast (30 mins)
 chrome.alarms.create("ntfyPoll", { periodInMinutes: 1 });
+chrome.alarms.create("ntfyBroadcast", { periodInMinutes: 30 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "ntfyPoll") {
         checkForRemoteCommands();
+    } else if (alarm.name === "ntfyBroadcast") {
+        chrome.storage.sync.get(['scheduledTasks', 'isActive', 'ntfyTopic'], (res) => {
+            if (res.isActive && res.ntfyTopic) broadcastScheduleToRemote(res.ntfyTopic, res.scheduledTasks, res.isActive);
+        });
     }
 });
 
+// --- BROADCAST STATUS (PC -> PHONE) ---
+function broadcastScheduleToRemote(topic, tasks, isActive) {
+    if (!topic) return;
+    
+    const payload = {
+        type: "PC_STATUS_SYNC",
+        tasks: tasks || [],
+        isActive: isActive,
+        lastUpdate: Date.now()
+    };
+
+    // Silent (Priority 1) - Data only
+    fetch(`https://ntfy.sh/${topic}`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Title': 'System_Data', 'Priority': '1', 'Tags': 'satellite' }
+    }).catch(err => console.log("Broadcast Error:", err));
+}
+
+// --- COMMAND LISTENER (PHONE -> PC) ---
 function checkForRemoteCommands() {
     chrome.storage.sync.get(['ntfyTopic'], (result) => {
         const topic = result.ntfyTopic ? result.ntfyTopic.trim() : '';
         if (!topic) return;
 
-        fetch(`https://ntfy.sh/${topic}/json?since=1m&poll=1`)
+        // Read last 2 minutes to be safe
+        fetch(`https://ntfy.sh/${topic}/json?since=2m&poll=1`)
             .then(response => response.text())
             .then(text => {
                 const lines = text.trim().split('\n');
@@ -22,11 +48,18 @@ function checkForRemoteCommands() {
                     try {
                         if (!line) return;
                         const msg = JSON.parse(line);
-                        
-                        if (msg.message && msg.message.includes("REMOTE_UPDATE")) {
+                        if (msg.message) {
                             const command = JSON.parse(msg.message);
+                            
+                            // 1. Handle Schedule Update
                             if (command.type === "REMOTE_UPDATE") {
-                                applyRemoteSchedule(command);
+                                applyRemoteSchedule(command, topic);
+                            }
+                            // 2. Handle "View Status" Request
+                            else if (command.type === "REQUEST_SYNC") {
+                                chrome.storage.sync.get(['scheduledTasks', 'isActive'], (res) => {
+                                    broadcastScheduleToRemote(topic, res.scheduledTasks, res.isActive);
+                                });
                             }
                         }
                     } catch (e) {}
@@ -36,40 +69,29 @@ function checkForRemoteCommands() {
     });
 }
 
-function applyRemoteSchedule(cmd) {
+function applyRemoteSchedule(cmd, topic) {
     console.log("Received Remote Command:", cmd);
-
     const tasks = [];
     const now = new Date();
-    // Retrieve the randomization flag sent from the phone
     const isRandom = cmd.isRandomized || false;
     
     cmd.dates.forEach(dateStr => {
         const [y, mo, d] = dateStr.split('-');
-
         const addTask = (timeStr, type) => {
             if (!timeStr) return;
             const [h, m] = timeStr.split(':');
             const baseDate = new Date(y, mo - 1, d, h, m, 0, 0);
-            
             let targetDate = new Date(baseDate);
 
-            // *** APPLY RANDOMIZATION IF REQUESTED ***
             if (isRandom) {
-                const offsetMinutes = Math.floor(Math.random() * 11) - 5; // -5 to +5
+                const offsetMinutes = Math.floor(Math.random() * 11) - 5; 
                 targetDate.setMinutes(targetDate.getMinutes() + offsetMinutes);
             }
 
-            // Only add if in future (grace 1 min)
             if (targetDate - now > -60000) {
-                tasks.push({
-                    timestamp: targetDate.getTime(),
-                    action: type,
-                    dateStr: dateStr
-                });
+                tasks.push({ timestamp: targetDate.getTime(), action: type, dateStr: dateStr });
             }
         };
-
         addTask(cmd.clockIn, 'IN');
         addTask(cmd.clockOut, 'OUT');
     });
@@ -77,83 +99,81 @@ function applyRemoteSchedule(cmd) {
     if (tasks.length > 0) {
         tasks.sort((a, b) => a.timestamp - b.timestamp);
         
-        // Save to storage -> Triggers content.js AND updates popup UI state
         chrome.storage.sync.set({
             clockInTime: cmd.clockIn,
             clockOutTime: cmd.clockOut,
             targetDates: cmd.dates,
-            isRandomized: isRandom, // Save setting so popup toggle updates too!
+            isRandomized: isRandom,
             scheduledTasks: tasks,
             isActive: true
         }, () => {
-            console.log("Remote Schedule Applied Successfully.");
             updateExtensionIcon(true);
+            
+            // *** NEW: Send Human Readable Confirmation ***
+            const count = cmd.dates.length;
+            const msg = `Active for ${count} day${count > 1 ? 's' : ''}.\nIN: ${cmd.clockIn} | OUT: ${cmd.clockOut}`;
+            
+            fetch(`https://ntfy.sh/${topic}`, {
+                method: 'POST',
+                body: msg,
+                headers: { 'Title': 'PC Updated Successfully', 'Priority': '3', 'Tags': 'white_check_mark' }
+            });
+            
+            // Also broadcast the new data payload
+            broadcastScheduleToRemote(topic, tasks, true);
         });
     }
 }
 
-// --- STANDARD EXTENSION LOGIC BELOW ---
-
+// --- STANDARD LOGIC ---
 function updateExtensionIcon(isActive) {
   const state = isActive ? 'active' : 'inactive';
   chrome.action.setIcon({
       path: { "16": `icons/icon-${state}-16.png`, "48": `icons/icon-${state}-48.png`, "128": `icons/icon-${state}-128.png` }
-  }, () => { if (chrome.runtime.lastError) console.warn("Icon error"); });
+  }, () => {});
 }
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.isActive) updateExtensionIcon(changes.isActive.newValue);
+  // Broadcast local changes
+  if (changes.scheduledTasks || changes.isActive) {
+      chrome.storage.sync.get(['scheduledTasks', 'isActive', 'ntfyTopic'], (res) => {
+          if(res.ntfyTopic) broadcastScheduleToRemote(res.ntfyTopic, res.scheduledTasks, res.isActive);
+      });
+  }
 });
+
 chrome.storage.sync.get(['isActive'], (result) => updateExtensionIcon(result.isActive));
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  
-  if (request.type === "TASK_COMPLETED" || request.type === "TASK_SKIPPED_ALREADY_ON" || request.type === "TASK_SKIPPED_ALREADY_OFF") {
-    
+  if (request.type === "TASK_COMPLETED" || request.type.includes("TASK_SKIPPED")) {
     sendResponse({ status: "received" });
+    
+    // Broadcast update state
+    chrome.storage.sync.get(['scheduledTasks', 'isActive', 'ntfyTopic'], (res) => {
+        if(res.ntfyTopic) broadcastScheduleToRemote(res.ntfyTopic, res.scheduledTasks, res.isActive);
+    });
 
     chrome.storage.sync.get(['ntfyTopic'], (result) => {
       const topic = result.ntfyTopic ? result.ntfyTopic.trim() : '';
       if (!topic) return;
-
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      
-      let notifTitle = "";
-      let notifBody = "";
-      let notifTags = "";
+      let notifTitle = "", notifBody = "", notifTags = "";
 
       if (request.type === "TASK_COMPLETED") {
-          if (request.action === 'IN') {
-              notifTitle = "Clocked In!";
-              notifBody = `Successfully clocked in at ${timeStr}`;
-              notifTags = "white_check_mark";
-          } else {
-              notifTitle = "Clocked Out!";
-              notifBody = `Successfully clocked out at ${timeStr}`;
-              notifTags = "x";
-          }
-      } 
-      else if (request.type === "TASK_SKIPPED_ALREADY_ON") {
-          notifTitle = "Skipped (Already In)";
-          notifBody = `Attempted to Clock In at ${timeStr}, but switch was already ON.`;
-          notifTags = "warning";
-      }
-      else if (request.type === "TASK_SKIPPED_ALREADY_OFF") {
-          notifTitle = "Skipped (Already Out)";
-          notifBody = `Attempted to Clock Out at ${timeStr}, but switch was already OFF.`;
-          notifTags = "warning";
+          if (request.action === 'IN') { notifTitle = "Clocked In!"; notifBody = `Clocked in at ${timeStr}`; notifTags = "white_check_mark"; } 
+          else { notifTitle = "Clocked Out!"; notifBody = `Clocked out at ${timeStr}`; notifTags = "x"; }
+      } else if (request.type.includes("SKIPPED")) {
+          notifTitle = "Action Skipped"; notifBody = `Switch already in correct state at ${timeStr}`; notifTags = "warning";
       }
 
-      console.log(`Notify: ${notifTitle}`);
-      
       fetch(`https://ntfy.sh/${topic}`, {
         method: 'POST',
         body: notifBody,
         headers: { 'Title': notifTitle, 'Priority': 'high', 'Tags': notifTags }
-      }).catch(err => console.error("Notify Error:", err));
+      });
     });
-
   } else if (request.type === "TASK_FAILED") {
       sendResponse({ status: "fail_received" });
       chrome.storage.sync.set({ isActive: false });
