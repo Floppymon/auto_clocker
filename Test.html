@@ -1,19 +1,176 @@
-<input class="PrivateSwitchBase-input MuiSwitch-input css-1m9pwf3" type="checkbox" aria-label="ant design"><!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auto Clocker Local Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            text-align: center;
+            width: 320px;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 22px;
+            color: #2d3436;
+            margin-bottom: 30px;
+        }
+
+        /* --- TOGGLE SWITCH CSS --- */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-bottom: 15px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: #2ed573; }
+        input:focus + .slider { box-shadow: 0 0 1px #2ed573; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Status Text */
+        #status-text {
+            font-weight: bold;
+            font-size: 14px;
+            color: #636e72;
+            margin-top: 10px;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: #b2bec3;
+            margin-top: 20px;
+        }
+
+        /* Manifest Warning Box */
+        .setup-notice {
+            margin-top: 25px;
+            background-color: #fff8e1;
+            border: 1px solid #ffe082;
+            color: #f57f17;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            text-align: left;
+        }
+        .setup-notice code {
+            background: rgba(0,0,0,0.05);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            display: block;
+            margin: 5px 0;
+            text-align: center;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
-<<<<<<< Updated upstream
-    <h1>Scheduled Clicker Test</h1>
-=======
-    <h1>Scheduled Clicker Test v2</h1>
->>>>>>> Stashed changes
-    
-    <input type="checkbox" class="PrivateSwitchBase-input" id="test-switch">
-    <label for="test-switch">The Target Switch</label>
-    
-    <p>Check the Console (F12) after setting a time in the popup and refreshing this page.</p>
 
-    </body>
+    <div class="card">
+        <h1>Target Switch</h1>
+        
+        <label class="switch">
+            <input type="checkbox" class="PrivateSwitchBase-input" id="test-switch">
+            <span class="slider"></span>
+        </label>
+
+        <div id="status-text">OFF</div>
+
+        <div class="hint">
+            State persists on refresh.
+        </div>
+
+        <div class="setup-notice">
+            <strong>⚠️ Setup Required:</strong><br>
+            To test on this local file, update your <strong>manifest.json</strong>:
+            <code>"matches": [ "file://*/*" ]</code>
+        </div>
+    </div>
+
+    <script>
+        const toggle = document.querySelector('.PrivateSwitchBase-input');
+        const statusText = document.getElementById('status-text');
+
+        // 1. Load saved state on startup
+        const savedState = localStorage.getItem('targetSwitchState');
+        if (savedState === 'true') {
+            toggle.checked = true;
+            updateLabel(true);
+        }
+
+        // 2. Listen for changes (Manual or Script Click)
+        toggle.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            
+            // Save to storage
+            localStorage.setItem('targetSwitchState', isChecked);
+            
+            // Update UI text
+            updateLabel(isChecked);
+        });
+
+        function updateLabel(isChecked) {
+            if (isChecked) {
+                statusText.textContent = "ON";
+                statusText.style.color = "#2ed573";
+            } else {
+                statusText.textContent = "OFF";
+                statusText.style.color = "#636e72";
+            }
+        }
+    </script>
+
+</body>
 </html>

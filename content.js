@@ -18,6 +18,85 @@ function waitForElement(selector, timeout = 10000, interval = 500) {
     });
 }
 
+// --- STARTUP LOGIC ---
+chrome.storage.local.get(['verification'], (data) => {
+    if (data.verification) {
+        verifyLastAction(data.verification);
+    } else {
+        initNormalSchedule();
+    }
+});
+
+function verifyLastAction(verifyData) {
+    const attemptNum = verifyData.attempt || 1;
+    console.log(`Verifying previous action (Attempt ${attemptNum}):`, verifyData);
+    
+    waitForElement(ELEMENT_SELECTOR).then(el => {
+        const isChecked = el.checked; 
+        const expectedState = verifyData.expectIn; 
+        
+        // 1. SUCCESS CASE
+        if (isChecked === expectedState) {
+            console.log("Verification Successful! State matches.");
+            
+            chrome.storage.local.remove('verification');
+            
+            chrome.runtime.sendMessage({ 
+                type: "TASK_COMPLETED", 
+                action: verifyData.action 
+            });
+            
+            initNormalSchedule();
+        } 
+        // 2. FAILURE CASE
+        else {
+            console.log(`Verification Failed. State is ${isChecked?"ON":"OFF"}, expected ${expectedState?"ON":"OFF"}.`);
+
+            // *** RETRY LOGIC ***
+            if (attemptNum < 2) {
+                console.log("Attempt 1 failed. Retrying action now...");
+                
+                el.click();
+                
+                verifyData.attempt = 2;
+                
+                chrome.storage.local.set({ verification: verifyData }, () => {
+                    console.log("Waiting 10s for retry reload...");
+                    setTimeout(() => {
+                        location.reload();
+                    }, 10000);
+                });
+            } 
+            // *** GIVE UP LOGIC (2nd Failure) ***
+            else {
+                // CHANGED: No longer console.error
+                console.log("Verification failed twice. Giving up and sending alert.");
+                
+                chrome.storage.local.remove('verification');
+
+                chrome.runtime.sendMessage({ 
+                    type: "TASK_VERIFICATION_FAILED", 
+                    action: verifyData.action,
+                    current: isChecked
+                });
+                
+                initNormalSchedule();
+            }
+        }
+        
+    }).catch(err => {
+        console.log("Verification check failed: Element not found.");
+        chrome.runtime.sendMessage({ type: "TASK_FAILED" });
+        initNormalSchedule();
+    });
+}
+
+function initNormalSchedule() {
+    chrome.storage.sync.get(['scheduledTasks', 'isActive'], (result) => {
+        scheduleFromList(result.scheduledTasks, result.isActive, false);
+    });
+}
+
 function scheduleFromList(tasks, isActive, isReCheck = false) {
     if (isActive === false) return;
     if (clickerTimeout) { clearTimeout(clickerTimeout); clickerTimeout = null; }
@@ -29,9 +108,7 @@ function scheduleFromList(tasks, isActive, isReCheck = false) {
         
         let nextTask = null;
 
-        // Find the first task in the future that we haven't run yet
         for (const task of tasks) {
-            // Ignore if we just ran this specific timestamp
             if (task.timestamp === lastRun) continue;
 
             const diff = task.timestamp - now.getTime();
@@ -39,11 +116,10 @@ function scheduleFromList(tasks, isActive, isReCheck = false) {
 
             if (diff > timeBuffer) {
                 nextTask = task;
-                break; // Tasks are sorted
+                break; 
             }
         }
 
-        // Auto-Stop if list finished
         if (!nextTask) {
             console.log("Scheduled Clicker: No future tasks found. Deactivating.");
             chrome.storage.sync.set({ isActive: false, scheduledTasks: [] });
@@ -52,23 +128,13 @@ function scheduleFromList(tasks, isActive, isReCheck = false) {
 
         const finalDiff = nextTask.timestamp - now.getTime();
         
-        // --- NEW: SMART REFRESH LOGIC ---
-        // If the task is more than 10 minutes away, don't just wait.
-        // Schedule a page reload for 2 minutes BEFORE the task.
-        // This prevents session timeouts and keeps the tab active.
-        if (finalDiff > 600000) { // 600,000ms = 10 minutes
-            const reloadTime = finalDiff - 120000; // Reload 2 mins before target
-            console.log(`Target is far away. Scheduling a page refresh in ${(reloadTime/60000).toFixed(1)} minutes to keep session alive.`);
-            
-            clickerTimeout = setTimeout(() => {
-                console.log("Refreshing page to ensure fresh session...");
-                location.reload();
-            }, reloadTime);
-            return; // Stop here. The reload will restart the script.
+        if (finalDiff > 600000) { 
+            const reloadTime = finalDiff - 120000;
+            console.log(`Target is far away. Refreshing in ${(reloadTime/60000).toFixed(1)} mins.`);
+            clickerTimeout = setTimeout(() => location.reload(), reloadTime);
+            return;
         }
-        // --------------------------------
 
-        // Execute (If we are close enough, < 10 mins)
         if (finalDiff <= 0 && finalDiff > -60000 && !isReCheck) {
             console.log(`Grace period active. Doing: ${nextTask.action} immediately.`);
             executeTask(nextTask);
@@ -79,7 +145,7 @@ function scheduleFromList(tasks, isActive, isReCheck = false) {
         console.log(`Next Action: ${nextTask.action} at ${dateDisplay}`);
 
         clickerTimeout = setTimeout(() => {
-            console.log("Time reached. Performing action...");
+            console.log("Time reached. Executing...");
             executeTask(nextTask);
         }, finalDiff);
     });
@@ -96,45 +162,49 @@ function performAction(el, task) {
 
     try {
         const isChecked = el.checked; 
-        let didClick = false;
-        let messageType = "TASK_COMPLETED"; 
         const actionType = task.action;
-        
+        let actionNeeded = false;
+
         if (actionType === 'IN') {
             if (isChecked) {
-                console.log("Action IN requested, but Switch is ALREADY ON. Skipping.");
-                messageType = "TASK_SKIPPED_ALREADY_ON";
+                console.log("Action IN requested, but ALREADY ON. Skipping.");
+                chrome.runtime.sendMessage({ type: "TASK_SKIPPED_ALREADY_ON", action: 'IN' });
+                chrome.storage.local.set({ lastProcessed: task.timestamp });
+                initNormalSchedule(); 
+                return; 
             } else {
-                el.click();
-                didClick = true;
+                actionNeeded = true;
             }
         } else if (actionType === 'OUT') {
             if (!isChecked) {
-                console.log("Action OUT requested, but Switch is ALREADY OFF. Skipping.");
-                messageType = "TASK_SKIPPED_ALREADY_OFF";
+                console.log("Action OUT requested, but ALREADY OFF. Skipping.");
+                chrome.runtime.sendMessage({ type: "TASK_SKIPPED_ALREADY_OFF", action: 'OUT' });
+                chrome.storage.local.set({ lastProcessed: task.timestamp });
+                initNormalSchedule(); 
+                return;
             } else {
-                el.click();
-                didClick = true;
+                actionNeeded = true;
             }
         }
 
-        // Save progress using the unique timestamp
-        chrome.storage.local.set({ lastProcessed: task.timestamp });
+        if (actionNeeded) {
+            el.click();
+            console.log(`Action ${actionType} clicked. Waiting 10s to refresh and verify...`);
 
-        const delay = didClick ? 1000 : 100;
-
-        setTimeout(() => {
-            if (!chrome.runtime?.id) return;
-            
-            chrome.runtime.sendMessage({ type: messageType, action: actionType }, () => { 
-                if (chrome.runtime.lastError) return; 
+            chrome.storage.local.set({ 
+                lastProcessed: task.timestamp,
+                verification: {
+                    action: actionType,
+                    expectIn: (actionType === 'IN'),
+                    attempt: 1 
+                }
+            }, () => {
+                setTimeout(() => {
+                    console.log("Reloading page now...");
+                    location.reload();
+                }, 10000);
             });
-
-            // Re-schedule
-            chrome.storage.sync.get(['scheduledTasks', 'isActive'], (result) => {
-                 scheduleFromList(result.scheduledTasks, result.isActive, true);
-            });
-        }, delay);
+        }
 
     } catch(error) {
         console.error("Error.", error);
@@ -142,15 +212,8 @@ function performAction(el, task) {
     }
 }
 
-// --- INITIALIZATION ---
-chrome.storage.sync.get(['scheduledTasks', 'isActive'], (result) => {
-    scheduleFromList(result.scheduledTasks, result.isActive, false);
-});
-
 chrome.storage.onChanged.addListener((changes) => {
     if (changes.scheduledTasks || changes.isActive) {
-        chrome.storage.sync.get(['scheduledTasks', 'isActive'], (result) => {
-             scheduleFromList(result.scheduledTasks, result.isActive, false);
-        });
+        initNormalSchedule();
     }
 });
