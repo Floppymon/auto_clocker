@@ -39,7 +39,7 @@ function checkForRemoteCommands() {
         const topic = result.ntfyTopic ? result.ntfyTopic.trim() : '';
         if (!topic) return;
 
-        // Read last 2 minutes to be safe
+        // Read last 2 minutes
         fetch(`https://ntfy.sh/${topic}/json?since=2m&poll=1`)
             .then(response => response.text())
             .then(text => {
@@ -51,14 +51,30 @@ function checkForRemoteCommands() {
                         if (msg.message) {
                             const command = JSON.parse(msg.message);
                             
-                            // 1. Handle Schedule Update
+                            // 1. Update Schedule
                             if (command.type === "REMOTE_UPDATE") {
                                 applyRemoteSchedule(command, topic);
                             }
-                            // 2. Handle "View Status" Request
+                            // 2. View Status Request
                             else if (command.type === "REQUEST_SYNC") {
                                 chrome.storage.sync.get(['scheduledTasks', 'isActive'], (res) => {
                                     broadcastScheduleToRemote(topic, res.scheduledTasks, res.isActive);
+                                });
+                            }
+                            // 3. NEW: Deactivate Request
+                            else if (command.type === "REMOTE_STOP") {
+                                chrome.storage.sync.set({ isActive: false, scheduledTasks: [] }, () => {
+                                    updateExtensionIcon(false);
+                                    
+                                    // Broadcast empty state immediately
+                                    broadcastScheduleToRemote(topic, [], false);
+                                    
+                                    // Send confirmation notification
+                                    fetch(`https://ntfy.sh/${topic}`, {
+                                        method: 'POST',
+                                        body: "Schedule has been cancelled.",
+                                        headers: { 'Title': 'Deactivated', 'Priority': '3', 'Tags': 'stop_sign' }
+                                    });
                                 });
                             }
                         }
@@ -109,7 +125,6 @@ function applyRemoteSchedule(cmd, topic) {
         }, () => {
             updateExtensionIcon(true);
             
-            // *** NEW: Send Human Readable Confirmation ***
             const count = cmd.dates.length;
             const msg = `Active for ${count} day${count > 1 ? 's' : ''}.\nIN: ${cmd.clockIn} | OUT: ${cmd.clockOut}`;
             
@@ -119,7 +134,6 @@ function applyRemoteSchedule(cmd, topic) {
                 headers: { 'Title': 'PC Updated Successfully', 'Priority': '3', 'Tags': 'white_check_mark' }
             });
             
-            // Also broadcast the new data payload
             broadcastScheduleToRemote(topic, tasks, true);
         });
     }
@@ -135,7 +149,6 @@ function updateExtensionIcon(isActive) {
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.isActive) updateExtensionIcon(changes.isActive.newValue);
-  // Broadcast local changes
   if (changes.scheduledTasks || changes.isActive) {
       chrome.storage.sync.get(['scheduledTasks', 'isActive', 'ntfyTopic'], (res) => {
           if(res.ntfyTopic) broadcastScheduleToRemote(res.ntfyTopic, res.scheduledTasks, res.isActive);
@@ -149,7 +162,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "TASK_COMPLETED" || request.type.includes("TASK_SKIPPED")) {
     sendResponse({ status: "received" });
     
-    // Broadcast update state
     chrome.storage.sync.get(['scheduledTasks', 'isActive', 'ntfyTopic'], (res) => {
         if(res.ntfyTopic) broadcastScheduleToRemote(res.ntfyTopic, res.scheduledTasks, res.isActive);
     });
