@@ -69,11 +69,12 @@ function checkForRemoteCommands() {
                                     // Broadcast empty state immediately
                                     broadcastScheduleToRemote(topic, [], false);
                                     
-                                    // Send confirmation notification
+                                    // Send confirmation notification (RED COLOR)
                                     fetch(`https://ntfy.sh/${topic}`, {
                                         method: 'POST',
-                                        body: "Schedule has been cancelled.",
-                                        headers: { 'Title': 'Deactivated', 'Priority': '3', 'Tags': 'stop_sign' }
+                                        body: "The active schedule has been cancelled.",
+                                        // Priority: 'high' and Tags: 'x' makes it Red
+                                        headers: { 'Title': 'Schedule Cancelled', 'Priority': 'high', 'Tags': 'x' }
                                     });
                                 });
                             }
