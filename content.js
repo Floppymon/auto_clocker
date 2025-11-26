@@ -1,7 +1,7 @@
+//
 let clickerTimeout;
-const ELEMENT_SELECTOR = ".PrivateSwitchBase-input"; // Target element selector
+const ELEMENT_SELECTOR = ".PrivateSwitchBase-input"; 
 
-// Function to wait until the element appears on the page before performing the action
 function waitForElement(selector, timeout = 10000, interval = 500) {
     return new Promise((resolve, reject) => {
         const startTime = Date.now();
@@ -18,133 +18,182 @@ function waitForElement(selector, timeout = 10000, interval = 500) {
     });
 }
 
-function scheduleClick(targetTime, isActive) {
-    // *** FIX: If the task is inactive, do not proceed with scheduling or grace period ***
-    // We only proceed if isActive is explicitly true, or if it is undefined (on first load)
-    if (isActive === false) {
-        console.log("Scheduled Clicker: Task is inactive. Skipping scheduling.");
-        return;
+// --- ENTRY POINT ---
+// Check storage immediately to see if we are in the middle of a "Verify after Reload" cycle
+chrome.storage.local.get(['verificationPending', 'scheduledTasks', 'isActive', 'lastProcessed'], (data) => {
+    if (data.verificationPending) {
+        // We just reloaded and need to verify a previous action
+        console.log("Page reloaded. Resuming verification...", data.verificationPending);
+        handleVerification(data.verificationPending);
+    } else {
+        // Normal startup
+        scheduleFromList(data.scheduledTasks, data.isActive, data.lastProcessed);
     }
-    
-    // Clear any existing timer
-    if (clickerTimeout) {
-        clearTimeout(clickerTimeout);
-        clickerTimeout = null;
-    }
-
-    if (!targetTime) return;
-
-    const now = new Date(), target = new Date();
-    const [h, m] = targetTime.split(':');
-
-    target.setHours(h, m, 0, 0); 
-
-    const diff = target - now;
-
-    // Grace Period: If opened within 60 seconds of target (page load latency)
-    if (diff <= 0 && diff > -60000) {
-        console.log("Scheduled Clicker: Grace period active. Checking for element immediately!");
-        
-        // Use the new waiting function to ensure element is loaded
-        waitForElement(ELEMENT_SELECTOR)
-            .then(el => {
-                performClick(el);
-            })
-            .catch(error => {
-                console.error("Scheduled Clicker: Immediate click failed.", error);
-                // Send failure message to background script
-                chrome.runtime.sendMessage({ type: "TASK_FAILED" });
-            });
-        return;
-    }
-
-    // Schedule for today or tomorrow
-    if (target <= now) target.setDate(target.getDate() + 1);
-
-    const timeUntilTarget = target - now;
-    console.log(`Scheduled Clicker: Waiting for: ${target.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}`);
-
-    clickerTimeout = setTimeout(() => {
-        console.log("Scheduled Clicker: Time reached. Waiting for element...");
-        
-        // When time hits, wait for the element to appear
-        waitForElement(ELEMENT_SELECTOR)
-            .then(el => {
-                performClick(el);
-            })
-            .catch(error => {
-                console.error("Scheduled Clicker: Timed click failed.", error);
-                // Send failure message to background script
-                chrome.runtime.sendMessage({ type: "TASK_FAILED" });
-            });
-
-    }, timeUntilTarget);
-}
-function performClick(el) {
-    try {
-        el.click();
-        console.log("Scheduled Clicker: Click successful!");
-        
-        // Set state to Inactive immediately after the click execution for reliability
-        chrome.storage.sync.set({ isActive: false }, () => {
-            // Added check for context invalidated before console log (optional but safer)
-            if (chrome.runtime.lastError) return;
-            console.log("Scheduled Clicker: Task completed. State set to Inactive.");
-        });
-        
-        // Wait 500ms for state update before checking
-        setTimeout(() => {
-            const isChecked = el.checked; // true = Clocked In, false = Clocked Out
-            console.log("Scheduled Clicker: Switch State after click:", isChecked ? "IN" : "OUT");
-            
-            // Send success message (with state) to background script
-            chrome.runtime.sendMessage({ 
-                type: "TASK_COMPLETED", 
-                checked: isChecked 
-            }, () => {
-                // *** CRITICAL FIX: Check for error after message attempt ***
-                if (chrome.runtime.lastError) {
-                    console.warn("Scheduled Clicker: Failed to send success message (Context invalidated).");
-                }
-            });
-        }, 500);
-
-    } catch(error) {
-        console.error("Scheduled Clicker: Error during click execution.", error);
-        
-        // Attempt to send failure message, but gracefully handle context invalidation
-        chrome.runtime.sendMessage({ type: "TASK_FAILED" }, () => {
-             // *** CRITICAL FIX: Check for error after message attempt ***
-             if (chrome.runtime.lastError) {
-                console.warn("Scheduled Clicker: Failed to send failure message (Context invalidated).");
-            }
-        });
-        
-        // Also set inactive on click failure
-        chrome.storage.sync.set({ isActive: false });
-    }
-}
-
-// --- INITIALIZATION & Storage Listeners ---
-
-// Get initial time and isActive state on page load
-chrome.storage.sync.get(['targetTime', 'isActive'], (result) => {
-    // Pass isActive status to prevent Grace Period from running on manual refresh if alarm fired
-    scheduleClick(result.targetTime, result.isActive);
 });
 
-// Listen for time changes from the popup (real-time update)
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    // If target time changes, re-schedule (assuming activation)
-    if (changes.targetTime && changes.targetTime.newValue) {
-        // Assume activation is intended when time changes
-        scheduleClick(changes.targetTime.newValue, true); 
-    } else if (changes.isActive && changes.isActive.newValue === false) {
-        // Clear timeout if deactivated via popup while on this page
-        if (clickerTimeout) {
-            clearTimeout(clickerTimeout);
-            clickerTimeout = null;
-            console.log("Scheduled Clicker: Local timer cleared due to Deactivation.");
+function handleVerification(pendingTask) {
+    waitForElement(ELEMENT_SELECTOR)
+        .then(el => {
+            const isChecked = el.checked;
+            const expectedState = (pendingTask.action === 'IN'); // IN = true, OUT = false
+            
+            console.log(`Verification Check: Expected ${expectedState}, Got ${isChecked}`);
+
+            if (isChecked === expectedState) {
+                // SUCCESS
+                console.log("Verification Successful!");
+                chrome.storage.local.remove('verificationPending'); // Clear flag
+                sendNotification("TASK_COMPLETED", pendingTask.action);
+                
+                // Resume normal schedule
+                chrome.storage.sync.get(['scheduledTasks', 'isActive'], (res) => {
+                     scheduleFromList(res.scheduledTasks, res.isActive, pendingTask.timestamp);
+                });
+
+            } else {
+                // FAILED
+                console.log("Verification Failed."); // Changed from warn
+                
+                if (pendingTask.attempt < 2) {
+                    console.log("Attempting Retry (Click -> Wait 5s -> Reload -> Verify)...");
+                    
+                    // RETRY ACTION
+                    el.click();
+                    
+                    // Update attempt count and reload again
+                    const retryData = { ...pendingTask, attempt: 2 };
+                    chrome.storage.local.set({ verificationPending: retryData }, () => {
+                        // Wait 5 seconds before reloading for retry
+                        setTimeout(() => location.reload(), 5000);
+                    });
+
+                } else {
+                    // FINAL FAILURE
+                    console.log("Retry also failed. Sending Alert."); // Changed from error
+                    chrome.storage.local.remove('verificationPending'); // Clear flag to stop loop
+                    sendNotification("TASK_RETRY_FAILED", pendingTask.action);
+                    
+                    // Resume normal schedule (skipping this broken task)
+                    chrome.storage.sync.get(['scheduledTasks', 'isActive'], (res) => {
+                         scheduleFromList(res.scheduledTasks, res.isActive, pendingTask.timestamp);
+                    });
+                }
+            }
+        })
+        .catch(err => {
+            console.log("Verification element not found", err); // Changed from error
+            chrome.storage.local.remove('verificationPending');
+        });
+}
+
+function scheduleFromList(tasks, isActive, lastRun = 0) {
+    if (isActive === false) return;
+    if (clickerTimeout) { clearTimeout(clickerTimeout); clickerTimeout = null; }
+    if (!tasks || tasks.length === 0) return;
+
+    const now = new Date();
+    let nextTask = null;
+
+    // Find the next task
+    for (const task of tasks) {
+        if (task.timestamp === lastRun) continue;
+        const diff = task.timestamp - now.getTime();
+        if (diff > -60000) { // Allow 1 min grace period
+            nextTask = task;
+            break; 
         }
+    }
+
+    if (!nextTask) {
+        console.log("No future tasks found. Deactivating.");
+        chrome.storage.sync.set({ isActive: false, scheduledTasks: [] });
+        return;
+    }
+
+    const finalDiff = nextTask.timestamp - now.getTime();
+
+    // Smart Refresh (Prevent Session Timeout if > 10 mins away)
+    if (finalDiff > 600000) { 
+        const reloadTime = finalDiff - 120000; 
+        console.log(`Target is far away. Scheduling refresh in ${(reloadTime/60000).toFixed(1)} mins.`);
+        clickerTimeout = setTimeout(() => location.reload(), reloadTime);
+        return; 
+    }
+
+    // Execute
+    if (finalDiff <= 0) {
+        console.log(`Grace period active. Executing ${nextTask.action} immediately.`);
+        executeTask(nextTask);
+    } else {
+        const dateDisplay = new Date(nextTask.timestamp).toLocaleString('en-GB');
+        console.log(`Next Action: ${nextTask.action} at ${dateDisplay}`);
+        clickerTimeout = setTimeout(() => executeTask(nextTask), finalDiff);
+    }
+}
+
+function executeTask(task) {
+    waitForElement(ELEMENT_SELECTOR).then(el => {
+        const isChecked = el.checked; 
+        const actionType = task.action;
+
+        // 1. Check if action is needed
+        if ((actionType === 'IN' && isChecked) || (actionType === 'OUT' && !isChecked)) {
+            console.log(`Switch already in correct state (${actionType}). Skipping.`);
+            // Update lastProcessed so we don't loop
+            chrome.storage.local.set({ lastProcessed: task.timestamp });
+            
+            const msg = actionType === 'IN' ? "TASK_SKIPPED_ALREADY_ON" : "TASK_SKIPPED_ALREADY_OFF";
+            sendNotification(msg, actionType);
+            
+            // Re-schedule
+            chrome.storage.sync.get(['scheduledTasks', 'isActive'], (res) => {
+                 scheduleFromList(res.scheduledTasks, res.isActive, task.timestamp);
+            });
+            return;
+        }
+
+        // 2. Perform Click
+        console.log(`Clicking for ${actionType}...`);
+        el.click();
+
+        // 3. Mark processed & Set Verification Flag
+        chrome.storage.local.set({ 
+            lastProcessed: task.timestamp,
+            verificationPending: { ...task, attempt: 1 }
+        });
+
+        // 4. Wait 5 seconds for network request, then Reload
+        console.log("Action performed. Waiting 5 seconds before reloading for verification...");
+        setTimeout(() => {
+            console.log("Reloading now...");
+            location.reload();
+        }, 5000);
+
+    }).catch(err => {
+        if (chrome.runtime?.id) chrome.runtime.sendMessage({ type: "TASK_FAILED" });
+    });
+}
+
+function sendNotification(type, action) {
+    if (chrome.runtime?.id) {
+        chrome.runtime.sendMessage({ type: type, action: action }, () => { 
+            if (chrome.runtime.lastError) return; 
+        });
+    }
+}
+
+// Watch for external updates (e.g. from Popup)
+chrome.storage.onChanged.addListener((changes) => {
+    if (changes.scheduledTasks || changes.isActive) {
+        // Only re-schedule if we aren't currently verifying
+        chrome.storage.local.get(['verificationPending'], (data) => {
+            if (!data.verificationPending) {
+                chrome.storage.sync.get(['scheduledTasks', 'isActive'], (result) => {
+                    chrome.storage.local.get(['lastProcessed'], (local) => {
+                        scheduleFromList(result.scheduledTasks, result.isActive, local.lastProcessed);
+                    });
+                });
+            }
+        });
     }
 });
