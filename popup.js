@@ -1,264 +1,190 @@
-//
 document.addEventListener('DOMContentLoaded', () => {
   
-  // Elements
+  // DOM Elements
   const scheduleView = document.getElementById('scheduleView');
   const settingsView = document.getElementById('settingsView');
-  const activeScheduleView = document.getElementById('activeScheduleView'); 
-  
   const settingsIcon = document.getElementById('settings-icon');
-  const listIcon = document.getElementById('list-icon'); 
-  const notificationDot = document.getElementById('notification-dot'); 
-
-  const backIconSettings = document.getElementById('back-icon-settings');
-  const backIconList = document.getElementById('back-icon-list');
-  
+  const backIcon = document.getElementById('back-icon');
   const actionButton = document.getElementById('actionBtn');
   const saveTopicButton = document.getElementById('saveTopicBtn');
-  const clockInInput = document.getElementById('clockInTime');
-  const clockOutInput = document.getElementById('clockOutTime');
-  const randomizeToggle = document.getElementById('randomizeToggle');
+  const timeInput = document.getElementById('timeInput');
   const ntfyTopicInput = document.getElementById('ntfyTopicInput');
   const settingsStatus = document.getElementById('settingsStatus');
-  const prevMonthBtn = document.getElementById('prevMonthBtn');
-  const nextMonthBtn = document.getElementById('nextMonthBtn');
-  const currentMonthLabel = document.getElementById('currentMonthLabel');
-  const calendarGrid = document.getElementById('calendarGrid');
-  const scheduleListContainer = document.getElementById('scheduleListContainer');
-  const statusEl = document.getElementById('status');
 
-  let currentDate = new Date(); 
-  let selectedDates = []; 
+  // --- Helper Functions ---
 
-  // --- CALENDAR LOGIC ---
-  function renderCalendar(date) {
-    calendarGrid.innerHTML = "";
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    currentMonthLabel.textContent = `${monthNames[month]} ${year}`;
-
-    const firstDayIndex = new Date(year, month, 1).getDay(); 
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    const todayDate = new Date(); todayDate.setHours(0,0,0,0);
-
-    for (let i = 0; i < firstDayIndex; i++) {
-        const emptyDiv = document.createElement("div");
-        emptyDiv.classList.add("cal-day", "empty");
-        calendarGrid.appendChild(emptyDiv);
-    }
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    for (let i = 1; i <= lastDay; i++) {
-        const dayDiv = document.createElement("div");
-        dayDiv.textContent = i;
-        dayDiv.classList.add("cal-day");
-        
-        const checkDate = new Date(year, month, i);
-        const y = checkDate.getFullYear();
-        const m = String(checkDate.getMonth() + 1).padStart(2, '0');
-        const d = String(checkDate.getDate()).padStart(2, '0');
-        const dateStr = `${y}-${m}-${d}`;
-
-        if (checkDate < todayDate) dayDiv.classList.add("past");
-        else {
-            dayDiv.addEventListener('click', () => toggleDateSelection(dateStr, dayDiv));
-            if (selectedDates.includes(dateStr)) dayDiv.classList.add("selected");
-            if (dateStr === todayStr) dayDiv.classList.add("today");
-        }
-        calendarGrid.appendChild(dayDiv);
+  // Helper function to get the ordinal suffix (st, nd, rd, th)
+  function getOrdinalSuffix(day) {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
     }
   }
 
-  function toggleDateSelection(dateStr, element) {
-      if (selectedDates.includes(dateStr)) {
-          selectedDates = selectedDates.filter(d => d !== dateStr);
-          element.classList.remove("selected");
-      } else {
-          selectedDates.push(dateStr);
-          element.classList.add("selected");
-      }
-      selectedDates.sort();
-  }
-
-  prevMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(currentDate); });
-  nextMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(currentDate); });
-
-  // --- UI HELPERS ---
+  // Helper function to toggle Button and Badge UI
   function updateUI(isActive) {
     const badge = document.getElementById('status-badge');
+    
+    if (!badge || !actionButton) return;
+
     if (isActive) {
-      badge.textContent = "Active"; badge.className = "active-badge"; 
-      actionButton.textContent = "Deactivate"; actionButton.className = "deactivate-btn"; 
+      // State: ACTIVE
+      badge.textContent = "Active";
+      badge.className = "active-badge"; 
+      actionButton.textContent = "Deactivate";
+      actionButton.className = "deactivate-btn"; 
     } else {
-      badge.textContent = "Inactive"; badge.className = "inactive-badge"; 
-      actionButton.textContent = "Activate"; actionButton.className = ""; 
+      // State: INACTIVE
+      badge.textContent = "Inactive";
+      badge.className = "inactive-badge"; 
+      actionButton.textContent = "Activate";
+      actionButton.className = ""; 
     }
   }
   
-  function toggleNotificationDot(hasTasks) {
-      if (hasTasks) {
-          notificationDot.classList.remove('hidden');
-      } else {
-          notificationDot.classList.add('hidden');
-      }
-  }
-
+  // Function to switch views
   function showView(viewId) {
-    scheduleView.classList.add('hidden'); 
+    scheduleView.classList.add('hidden');
     settingsView.classList.add('hidden');
-    activeScheduleView.classList.add('hidden');
     
-    if (viewId === 'schedule') scheduleView.classList.remove('hidden');
-    else if (viewId === 'settings') settingsView.classList.remove('hidden');
-    else if (viewId === 'list') activeScheduleView.classList.remove('hidden');
-  }
-
-  function renderScheduleList(tasks) {
-      if (!tasks || tasks.length === 0) {
-          scheduleListContainer.innerHTML = "<div style='text-align:center;color:#b2bec3;margin-top:20px;'>No active schedule.</div>";
-          return;
-      }
-      scheduleListContainer.innerHTML = "";
-      
-      const grouped = {};
-      tasks.forEach(task => {
-          if (!grouped[task.dateStr]) grouped[task.dateStr] = [];
-          grouped[task.dateStr].push(task);
-      });
-
-      for (const [dateStr, dateTasks] of Object.entries(grouped)) {
-          const item = document.createElement('div');
-          item.className = 'sched-item';
-          
-          const [yy, mm, dd] = dateStr.split('-');
-          const d = new Date(yy, mm - 1, dd);
-          const dateDisplay = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-
-          const timeDetails = dateTasks.map(t => {
-              const type = t.action === 'IN' ? 'IN' : 'OUT';
-              const dt = new Date(t.timestamp);
-              const timeStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-              return `<span style="color:${type==='IN'?'#2ed573':'#ff4757'}">${type}</span> <span class="sched-tag">${timeStr}</span>`;
-          }).join(" | ");
-
-          item.innerHTML = `<span class="sched-date">${dateDisplay}</span> <div class="sched-time-block">${timeDetails}</div>`;
-          scheduleListContainer.appendChild(item);
-      }
+    if (viewId === 'schedule') {
+        scheduleView.classList.remove('hidden');
+    } else if (viewId === 'settings') {
+        settingsView.classList.remove('hidden');
+    }
   }
 
   // --- INITIALIZATION ---
-  chrome.storage.sync.get(['clockInTime', 'clockOutTime', 'targetDates', 'isActive', 'ntfyTopic', 'isRandomized', 'scheduledTasks'], (result) => {
-    if (result.clockInTime) clockInInput.value = result.clockInTime;
-    if (result.clockOutTime) clockOutInput.value = result.clockOutTime;
-    if (result.targetDates && Array.isArray(result.targetDates)) selectedDates = result.targetDates;
-    if (result.isRandomized !== undefined) randomizeToggle.checked = result.isRandomized;
-    if (result.ntfyTopic) ntfyTopicInput.value = result.ntfyTopic;
 
-    renderCalendar(currentDate);
+  // 1. Load saved settings (Time, Active state, and Ntfy Topic)
+  chrome.storage.sync.get(['targetTime', 'isActive', 'ntfyTopic'], (result) => {
+    // Load Time
+    if (result.targetTime) {
+      timeInput.value = result.targetTime;
+    }
+    // Load Ntfy Topic
+    if (result.ntfyTopic) {
+      ntfyTopicInput.value = result.ntfyTopic;
+    }
+    // Set initial UI state
     updateUI(result.isActive);
-
-    const hasTasks = result.isActive && result.scheduledTasks && result.scheduledTasks.length > 0;
-    
-    // Toggle Dot on Load
-    toggleNotificationDot(hasTasks);
   });
   
-  // --- HANDLERS ---
-  settingsIcon.addEventListener('click', () => showView('settings'));
-  listIcon.addEventListener('click', () => {
-      chrome.storage.sync.get(['scheduledTasks'], (res) => {
-          renderScheduleList(res.scheduledTasks || []);
-          showView('list');
-      });
-  });
+  // --- VIEW HANDLERS ---
   
-  backIconSettings.addEventListener('click', () => showView('schedule'));
-  backIconList.addEventListener('click', () => showView('schedule'));
+  settingsIcon.addEventListener('click', () => {
+      showView('settings');
+      settingsStatus.textContent = ''; // Clear status when opening settings
+  });
 
+  backIcon.addEventListener('click', () => {
+      showView('schedule');
+  });
+
+  // --- SETTINGS LOGIC (Save Topic) ---
+  
   saveTopicButton.addEventListener('click', () => {
       const topic = ntfyTopicInput.value.trim();
-      if (!topic) { settingsStatus.textContent = "Invalid topic."; settingsStatus.style.color = '#ff4757'; return; }
-      chrome.storage.sync.set({ ntfyTopic: topic }, () => { settingsStatus.textContent = "Saved!"; settingsStatus.style.color = '#2ed573'; });
-  });
-  randomizeToggle.addEventListener('change', () => {
-      chrome.storage.sync.set({ isRandomized: randomizeToggle.checked });
+      
+      if (!topic) {
+          settingsStatus.textContent = "Please enter a valid topic name.";
+          settingsStatus.style.color = '#ff4757'; // Red error color
+          return;
+      }
+      
+      chrome.storage.sync.set({ ntfyTopic: topic }, () => {
+          settingsStatus.textContent = "Topic saved successfully!";
+          settingsStatus.style.color = '#2ed573'; // Green success color
+      });
   });
 
-  // --- ACTIVATE / DEACTIVATE ---
-  actionButton.addEventListener('click', () => {
-    const isCurrentlyActive = actionButton.textContent === "Deactivate";
-    statusEl.classList.remove('show'); statusEl.className = ''; 
-
-    if (isCurrentlyActive) {
-        chrome.storage.sync.set({ isActive: false, scheduledTasks: [] }, () => {
-            statusEl.className = 'status-error show';
-            statusEl.textContent = "Deactivated!"; // <--- UPDATED HERE
-            updateUI(false);
-            toggleNotificationDot(false); 
-        });
-    } else {
-        const inTime = clockInInput.value;
-        const outTime = clockOutInput.value;
+  // --- SCHEDULE LOGIC (Activate / Deactivate) ---
+  
+  if (actionButton) {
+      actionButton.addEventListener('click', () => {
+        const isCurrentlyActive = actionButton.textContent === "Deactivate";
+        const statusEl = document.getElementById('status');
         
-        if (!inTime && !outTime) {
-            statusEl.className = 'status-error show';
-            statusEl.textContent = "Please set at least one time.";
-            return;
-        }
-        if (selectedDates.length === 0) {
-            statusEl.className = 'status-error show';
-            statusEl.textContent = "Select at least one date.";
-            return;
-        }
+        // Clear previous status message
+        statusEl.classList.remove('show');
+        statusEl.className = ''; 
 
-        const isRandom = randomizeToggle.checked;
-        const tasks = [];
-        const now = new Date();
-
-        selectedDates.forEach(dateStr => {
-            const [y, mo, d] = dateStr.split('-');
-            
-            const addTask = (timeStr, type) => {
-                if (!timeStr) return;
-                const [h, m] = timeStr.split(':');
-                const baseDate = new Date(y, mo - 1, d, h, m, 0, 0);
+        if (isCurrentlyActive) {
+            // --- DEACTIVATE LOGIC ---
+            chrome.storage.sync.set({ isActive: false }, () => {
                 
-                let targetDate = new Date(baseDate);
-                if (isRandom) {
-                    const offsetMinutes = Math.floor(Math.random() * 11) - 5; 
-                    targetDate.setMinutes(targetDate.getMinutes() + offsetMinutes);
-                }
+                // Show Error Class (Red Box)
+                statusEl.className = 'status-error show';
+                statusEl.textContent = "Timer Cancelled.";
+                
+                updateUI(false);
+            });
 
-                if (targetDate - now > -60000) {
-                    tasks.push({ timestamp: targetDate.getTime(), action: type, dateStr: dateStr });
-                }
-            };
-            addTask(inTime, 'IN');
-            addTask(outTime, 'OUT');
-        });
+        } else {
+            // --- ACTIVATE LOGIC ---
+            const timeValue = timeInput.value;
+            
+            if (!timeValue) {
+                // Show Error Class (Red Box)
+                statusEl.className = 'status-error show';
+                statusEl.textContent = "Please enter a time.";
+                return;
+            }
 
-        if (tasks.length === 0) {
-            statusEl.className = 'status-error show';
-            statusEl.textContent = "All calculated times are in the past.";
-            return;
+            // Calculate details for confirmation message
+            const now = new Date();
+            const [h, m] = timeValue.split(':');
+            const target = new Date();
+            target.setHours(h, m, 0, 0);
+            
+            // If time has passed today, schedule for tomorrow
+            if (target <= now) target.setDate(target.getDate() + 1);
+
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            // Apply ordinal suffix (e.g., '20th')
+            const dayOfMonth = target.getDate();
+            const dayWithSuffix = dayOfMonth + getOrdinalSuffix(dayOfMonth);
+            
+            // Format: "Wednesday - 20th November 2025"
+            const datePart = `${days[target.getDay()]} - ${dayWithSuffix} ${months[target.getMonth()]} ${target.getFullYear()}`;
+            
+            // Save & Set Active
+            chrome.storage.sync.set({ 
+                targetTime: timeValue,
+                isActive: true 
+            }, () => {
+                
+                // Apply Success Class (Green Box)
+                statusEl.className = 'status-success show';
+                
+                // Set Content (Date on top, large time on bottom)
+                statusEl.innerHTML = `
+                    <div style="font-weight: 600; letter-spacing: 0.5px;">${datePart}</div>
+                    <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">${timeValue}</div>
+                `;
+                
+                updateUI(true);
+            });
         }
-
-        tasks.sort((a, b) => a.timestamp - b.timestamp);
-
-        chrome.storage.sync.set({ 
-            clockInTime: inTime,
-            clockOutTime: outTime,
-            targetDates: selectedDates,
-            scheduledTasks: tasks,
-            isActive: true 
-        }, () => {
-            statusEl.className = 'status-success show';
-            statusEl.style.fontWeight = 'bold';
-            statusEl.textContent = "Saved!";
-            updateUI(true);
-            toggleNotificationDot(true); 
-        });
-    }
-  });
+      });
+  }
+  
+  // --- KEYPRESS HANDLER (Allows 'Enter' to activate) ---
+  if (timeInput && actionButton) {
+      timeInput.addEventListener('keydown', (event) => {
+          // Check if the key pressed is the Enter key
+          if (event.key === 'Enter') {
+              // Prevent the default browser action (like form submission)
+              event.preventDefault(); 
+              
+              // Programmatically click the Activate/Deactivate button
+              actionButton.click();
+          }
+      });
+  }
 });

@@ -5,108 +5,67 @@
   </head>
   <body>
     
+    <!-- SCHEDULE VIEW -->
     <div id="scheduleView" class="view">
         <div class="header">
           <h3>Auto Clocker</h3>
           <div class="header-right">
             <div id="status-badge" class="inactive-badge">Inactive</div>
-            
-            <div class="icon-wrapper" id="schedule-icon-wrapper">
-                <div id="notification-dot" class="hidden"></div>
-                <svg id="list-icon" class="list-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#636e72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                </svg>
-            </div>
-
-            <div class="icon-wrapper">
-                <svg id="settings-icon" class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#636e72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-            </div>
+            <!-- Cog Wheel Icon (Settings) -->
+            <svg id="settings-icon" class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#636e72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
           </div>
         </div>
 
         <div class="input-group">
-          <div class="time-row">
-            <div class="time-col">
-                <label>Clock IN</label>
-                <input type="time" id="clockInTime">
-            </div>
-            <div class="time-col">
-                <label>Clock OUT</label>
-                <input type="time" id="clockOutTime">
-            </div>
-          </div>
-
-          <div class="calendar-wrapper">
-            <div class="calendar-header">
-              <button id="prevMonthBtn">&lt;</button>
-              <span id="currentMonthLabel">November 2025</span>
-              <button id="nextMonthBtn">&gt;</button>
-            </div>
-            <div class="calendar-grid-header">
-              <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
-            </div>
-            <div id="calendarGrid" class="calendar-grid"></div>
-          </div>
+          <input type="time" id="timeInput">
         </div>
         
         <button id="actionBtn">Activate</button>
+        
         <div id="status"></div>
     </div>
     
-    <div id="activeScheduleView" class="hidden">
-        <div class="header">
-            <svg id="back-icon-list" class="back-icon" fill="currentColor" width="24" height="24" viewBox="0 0 24 24" style="cursor: pointer;">
-                <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/>
-            </svg>
-            <span class="view-title">Schedule</span>
-        </div>
-        
-        <div id="scheduleListContainer"></div>
+    
+    <!-- Settings View -->
+<div id="settingsView" class="hidden">
+    <div class="header">
+        <svg id="back-icon" fill="currentColor" width="24" height="24" viewBox="0 0 24 24" style="cursor: pointer;">
+            <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/>
+        </svg>
+        <span class="view-title">Settings</span>
     </div>
 
-    <div id="settingsView" class="hidden">
-        <div class="header">
-            <svg id="back-icon-settings" class="back-icon" fill="currentColor" width="24" height="24" viewBox="0 0 24 24" style="cursor: pointer;">
-                <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/>
-            </svg>
-            <span class="view-title">Settings</span>
-        </div>
-
-        <div class="setting-group" style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
-                <label class="settings-title" style="margin: 0;">
-                    Randomise time
-                    <div class="tooltip-container">
-                        <svg fill="currentColor" width="18" height="18" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.43 12.55 13 13.11 13 14h-2v-.92c0-.68.29-1.34.82-1.78l1.4-1.28c.3-.26.48-.61.48-1.02 0-.82-.67-1.49-1.49-1.49-.82 0-1.49.67-1.49 1.49H9c0-1.76 1.43-3.19 3.19-3.19s3.19 1.43 3.19 3.19c0 .76-.32 1.46-.82 1.96z"/></svg>
-                        <div class="tooltip-text">If enabled, the click will happen at a random time between 5 minutes before and 5 minutes after your selected time.</div>
-                    </div>
-                </label>
-                <label class="switch">
-                    <input type="checkbox" id="randomizeToggle">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-group">
-            <label for="ntfyTopicInput" class="settings-title">
-                Ntfy Topic
-                <div id="info-icon" class="tooltip-container">
-                    <svg fill="currentColor" width="18" height="18" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.43 12.55 13 13.11 13 14h-2v-.92c0-.68.29-1.34.82-1.78l1.4-1.28c.3-.26.48-.61.48-1.02 0-.82-.67-1.49-1.49-1.49-.82 0-1.49.67-1.49 1.49H9c0-1.76 1.43-3.19 3.19-3.19s3.19 1.43 3.19 3.19c0 .76-.32 1.46-.82 1.96z"/></svg>
-                    <div class="tooltip-text">This is your secret channel name (topic) for mobile notifications.</div>
+    <div class="setting-group">
+        <label for="ntfyTopicInput" class="settings-title">
+            Ntfy Topic
+            <div id="info-icon" class="tooltip-container">
+                <!-- SVG for the question mark icon -->
+                <svg fill="currentColor" width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.43 12.55 13 13.11 13 14h-2v-.92c0-.68.29-1.34.82-1.78l1.4-1.28c.3-.26.48-.61.48-1.02 0-.82-.67-1.49-1.49-1.49-.82 0-1.49.67-1.49 1.49H9c0-1.76 1.43-3.19 3.19-3.19s3.19 1.43 3.19 3.19c0 .76-.32 1.46-.82 1.96z"/>
+                </svg>
+                <!-- Tooltip content -->
+                <div class="tooltip-text">
+                    This is your secret channel name (topic) for mobile notifications. 
+                    <br><br>
+                    1. Download the Ntfy app on your phone.
+                    <br>
+                    2. Subscribe to this exact topic name in the app.
                 </div>
-            </label>
-            <input type="text" id="ntfyTopicInput" placeholder="Provide ntfy topic">
-            <button id="saveTopicBtn" class="activate-btn" style="margin-top: 20px;">Save Topic</button>
-            <div id="settingsStatus" style="font-size: 11px; margin-top: 10px; font-weight: 500;"></div>
-        </div>
+            </div>
+        </label>
+        
+        <input type="text" id="ntfyTopicInput" placeholder="Provide ntfy topic">
+        
+        <button id="saveTopicBtn" class="activate-btn" style="margin-top: 20px;">Save Topic</button>
+        
+        <!-- Status message -->
+        <div id="settingsStatus" style="font-size: 11px; margin-top: 10px; font-weight: 500;"></div>
     </div>
+</div>
+    
     
     <script src="popup.js"></script>
   </body>
